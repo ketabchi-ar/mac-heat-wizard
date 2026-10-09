@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ponytail: mac-heat-daemon - lightweight macOS Apple Silicon thermal daemon & notification alerts
-# upgrade path: add customizable notification sound or threshold presets
+# upgrade path: multi-profile hardware policy presets
 
 import os
 import json
@@ -14,20 +14,31 @@ from ctypes import c_void_p, c_int, c_double, c_char_p
 LOG_FILE = os.path.expanduser("~/.mac_heat_history.log")
 CONFIG_FILE = os.path.expanduser("~/.mac_heat_config.json")
 MAX_LOG_BYTES = 2 * 1024 * 1024  # 2 MB max
-CHECK_INTERVAL_SEC = 30
-NOTIFICATION_COOLDOWN_SEC = 180  # Max 1 notification every 3 minutes
+CHECK_INTERVAL_SEC = 20
 
 def get_config():
+    default_cfg = {
+        "notifications_enabled": True,
+        "mode": "critical",           # "critical" | "balanced" | "silent"
+        "temp_threshold": 80,          # Alert only when M3 core temp >= 80°C
+        "cpu_threshold": 75,
+        "cooldown_minutes": 20,       # At most 1 alert every 20 minutes
+        "sound_enabled": True,
+        "sound": "Subtle"
+    }
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, "r") as f:
-                return json.load(f)
+                c = json.load(f)
+                default_cfg.update(c)
+                return default_cfg
         except Exception:
             pass
-    return {"notifications_enabled": True, "cpu_threshold": 40.0, "temp_threshold": 75.0, "sound": "Subtle"}
+    return default_cfg
 
 _last_notif_time = 0
 _finder_high_count = 0
+_sustained_spike_count = 0
 
 # --- Apple Silicon IOKit Temperature Reader ---
 try:
@@ -57,7 +68,6 @@ try:
 
     _kIOHIDEventTypeTemperature = 15
     _client = iokit.IOHIDEventSystemClientCreate(None)
-    _prop_prod = cf.CFStringCreateWithCString(None, b"Product", 0x08000100)
 except Exception:
     _client = None
 
@@ -66,7 +76,9 @@ def get_apple_silicon_temps():
         return 0.0, 0.0
     try:
         services = iokit.IOHIDEventSystemClientCopyServices(_client)
-        count = cf.CFArrayGetCount(services) if services else 0
+        if not services:
+            return 0.0, 0.0
+        count = cf.CFArrayGetCount(services)
         vals = []
         for i in range(count):
             svc = cf.CFArrayGetValueAtIndex(services, i)
@@ -81,18 +93,31 @@ def get_apple_silicon_temps():
         pass
     return 0.0, 0.0
 
-def send_notification(title, subtitle, message):
+def send_notification(title, subtitle, message, is_critical=False):
     global _last_notif_time
     cfg = get_config()
-    if not cfg.get("notifications_enabled", True):
+    
+    # 1. Master toggle & Silent mode
+    if not cfg.get("notifications_enabled", True) or cfg.get("mode") == "silent":
         return
+        
+    mode = cfg.get("mode", "critical")
+    if mode == "critical" and not is_critical:
+        return
+        
     now = time.time()
-    if now - _last_notif_time < NOTIFICATION_COOLDOWN_SEC:
+    cooldown_sec = max(60, float(cfg.get("cooldown_minutes", 20)) * 60)
+    if now - _last_notif_time < cooldown_sec:
         return
     _last_notif_time = now
+
     try:
-        sound = cfg.get("sound", "Subtle")
-        script = f'display notification "{message}" with title "{title}" subtitle "{subtitle}" sound name "{sound}"'
+        sound_clause = ""
+        if cfg.get("sound_enabled", True) and cfg.get("sound", "Subtle") != "None":
+            snd = cfg.get("sound", "Subtle")
+            sound_clause = f' sound name "{snd}"'
+            
+        script = f'display notification "{message}" with title "{title}" subtitle "{subtitle}"{sound_clause}'
         subprocess.run(["osascript", "-e", script], check=False, timeout=3)
     except Exception:
         pass
@@ -121,10 +146,12 @@ def get_battery_info():
     return "N/A"
 
 def check_spikes():
-    global _finder_high_count
+    global _finder_high_count, _sustained_spike_count
     cfg = get_config()
-    cpu_thresh = float(cfg.get("cpu_threshold", 40.0))
-    temp_thresh = float(cfg.get("temp_threshold", 75.0))
+    mode = cfg.get("mode", "critical")
+    cpu_thresh = float(cfg.get("cpu_threshold", 75.0))
+    temp_thresh = float(cfg.get("temp_threshold", 80.0))
+
     try:
         res = subprocess.run(["ps", "-A", "-o", "pid,%cpu,comm", "-r"], capture_output=True, text=True, timeout=3)
         lines = [l.strip() for l in res.stdout.splitlines() if l.strip()][1:]
@@ -153,16 +180,16 @@ def check_spikes():
             if any(x in comm for x in ["/ps", "/top", "mac-heat-daemon", "IntelligencePlatform", "mds"]):
                 continue
 
-            if cpu_val >= cpu_thresh or (comm.endswith("kernel_task") and cpu_val >= 20.0):
+            if cpu_val >= cpu_thresh or (comm.endswith("kernel_task") and cpu_val >= 25.0):
                 hogs.append((pid, cpu_val, comm))
 
-    # Auto-mitigate stuck Finder
-    if finder_cpu > 55.0:
+    # Auto-mitigate runaway stuck Finder (silently or with clean notification)
+    if finder_cpu > 70.0:
         _finder_high_count += 1
-        if _finder_high_count >= 2:
+        if _finder_high_count >= 3:
             try:
                 subprocess.run(["killall", "Finder"], check=False)
-                send_notification("♻️ خودکارسازی فایندر", "داغی رفع شد", f"فایندر با {finder_cpu:.0f}٪ CPU ری‌استارت شد.")
+                send_notification("♻️ مدیریت خودکار Finder", "رفع داغی پس‌زمینه", f"فایندر با {finder_cpu:.0f}٪ مصرف ری‌استارت شد.", is_critical=True)
                 _finder_high_count = 0
             except Exception:
                 pass
@@ -170,17 +197,18 @@ def check_spikes():
         _finder_high_count = 0
 
     avg_temp, max_temp = get_apple_silicon_temps()
+    temp_str = f"{avg_temp}°C (اوج: {max_temp}°C)" if max_temp > 0 else "N/A"
 
-    if hogs or total_top5 >= 80.0 or max_temp >= temp_thresh:
+    # Always log real spikes to file for history audit
+    if hogs or total_top5 >= 80.0 or (max_temp >= temp_thresh and max_temp > 0):
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         batt = get_battery_info()
         load1, load5, load15 = os.getloadavg()
-        temp_str = f"{avg_temp}°C (حداکثر: {max_temp}°C)" if max_temp > 0 else "N/A"
 
-        entry = [f"[{now_str}] ⚠️ SPIKE | دما: {temp_str} | بار: {load1:.2f}, {load5:.2f} | پاور: {batt}"]
+        entry = [f"[{now_str}] ⚠️ SPIKE | دما: {temp_str} | بار: {load1:.2f}, {load5:.2f} | توان: {batt}"]
         for pid, cpu_val, comm in hogs:
             name = os.path.basename(comm)
-            entry.append(f"   • PID: {pid:<7} | CPU: {cpu_val:>5.1f}% | {name} ({comm})")
+            entry.append(f"   • PID: {pid:<7} | CPU: {cpu_val:>5.1f}% | {name}")
 
         rotate_log_if_needed()
         try:
@@ -189,11 +217,26 @@ def check_spikes():
         except Exception:
             pass
 
-        # Trigger macOS banner notification
-        if hogs:
-            top_culprit = os.path.basename(hogs[0][2])
-            top_cpu = hogs[0][1]
-            send_notification("🔥 هشدار داغی پردازنده", f"دمای چیپ: {temp_str}", f"برنامه {top_culprit} مصرف {top_cpu:.0f}٪ دارد.")
+    # --- Intelligent Notification Policy (No Spams) ---
+    is_real_critical = False
+    alert_reason = ""
+
+    if max_temp >= temp_thresh and max_temp > 0:
+        is_real_critical = True
+        alert_reason = f"دمای هسته‌های چیپ M3 به {max_temp:.0f}°C رسیده است."
+    elif total_top5 >= 85.0:
+        _sustained_spike_count += 1
+        # Must be sustained for 3 cycles (~60s) AND hot (>= 72°C)
+        if _sustained_spike_count >= 3 and max_temp >= 72.0:
+            is_real_critical = (mode == "critical")
+            alert_reason = f"بار پردازشی مداوم سنگین ({total_top5:.0f}٪)."
+    else:
+        _sustained_spike_count = 0
+
+    if is_real_critical or (mode == "balanced" and max_temp >= 70.0 and hogs):
+        culprit = os.path.basename(hogs[0][2]) if hogs else "سیستم"
+        pct = f"({hogs[0][1]:.0f}٪)" if hogs else ""
+        send_notification("🔥 هشدار حرارتی مک", f"دمای چیپ: {temp_str}", f"{alert_reason} برنامه: {culprit} {pct}", is_critical=is_real_critical)
 
 def main():
     while True:

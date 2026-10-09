@@ -252,23 +252,75 @@
     padding: 10px 14px;
     margin-bottom: 10px;
     display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 12px;
+  }
+
+  .notif-top-row {
+    display: flex;
     align-items: center;
     justify-content: space-between;
-    font-size: 12px;
-    gap: 14px;
   }
 
   .notif-section-title {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-weight: 600;
+    font-weight: 700;
   }
 
-  .notif-controls {
+  .notif-mode-pills {
+    background: var(--pill-bg);
+    border: 1px solid var(--border-glass);
+    border-radius: 20px;
+    padding: 2px 4px;
     display: flex;
     align-items: center;
-    gap: 14px;
+    gap: 4px;
+  }
+
+  .notif-mode-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 3px 10px;
+    border-radius: 14px;
+    font-family: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .notif-mode-btn:hover {
+    color: var(--text-primary);
+  }
+
+  .notif-mode-btn.active#modeCritical {
+    background: rgba(244, 63, 94, 0.2);
+    color: var(--rose);
+    font-weight: 700;
+  }
+
+  .notif-mode-btn.active#modeBalanced {
+    background: rgba(56, 189, 248, 0.2);
+    color: var(--cyan);
+    font-weight: 700;
+  }
+
+  .notif-mode-btn.active#modeSilent {
+    background: rgba(148, 163, 184, 0.2);
+    color: var(--text-muted);
+    font-weight: 700;
+  }
+
+  .notif-controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding-top: 6px;
+    border-top: 1px solid var(--border-glass);
   }
 
   .slider-group {
@@ -290,6 +342,32 @@
     font-weight: 700;
     width: 32px;
     text-align: left;
+  }
+
+  .notif-select {
+    background: var(--pill-bg);
+    border: 1px solid var(--border-glass);
+    color: var(--text-primary);
+    border-radius: 8px;
+    padding: 3px 8px;
+    font-family: inherit;
+    font-size: 11px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  .sound-toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 11px;
+  }
+
+  .sound-toggle-label input {
+    accent-color: var(--cyan);
+    cursor: pointer;
   }
 
   .switch {
@@ -649,28 +727,52 @@
 
   <!-- Notification Controller -->
   <div class="glass-card notif-controller">
-    <div class="notif-section-title">
-      <span data-i18n="notifTitle">🔔 کنترلر هشدارهای داغی مک:</span>
-      <label class="switch">
-        <input type="checkbox" id="notifToggle" checked onchange="saveNotifConfig()">
-        <span class="slider"></span>
-      </label>
+    <div class="notif-top-row">
+      <div class="notif-section-title">
+        <span>🔔</span>
+        <span data-i18n="notifTitle">مدیریت هوشمند اعلان‌های داغی مک:</span>
+        <label class="switch" title="روشن / خاموش">
+          <input type="checkbox" id="notifToggle" checked onchange="saveNotifConfig()">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Mode Selector Pills -->
+      <div class="notif-mode-pills">
+        <button class="notif-mode-btn active" id="modeCritical" onclick="setNotifMode('critical')" data-i18n="modeCritical">🚨 فقط بحرانی (پیشنهادی)</button>
+        <button class="notif-mode-btn" id="modeBalanced" onclick="setNotifMode('balanced')" data-i18n="modeBalanced">⚖️ متعادل</button>
+        <button class="notif-mode-btn" id="modeSilent" onclick="setNotifMode('silent')" data-i18n="modeSilent">🔕 بی‌صدا</button>
+      </div>
     </div>
 
-    <div class="notif-controls">
+    <div class="notif-controls-row">
+      <!-- Temp Threshold Slider -->
       <div class="slider-group">
-        <span data-i18n="cpuCap">سقف پردازنده:</span>
-        <input type="range" id="cpuSlider" min="20" max="80" value="40" oninput="updateSliders(); saveNotifConfig()">
-        <span class="slider-val" id="cpuSliderVal">40%</span>
+        <span data-i18n="tempCap">🌡 سقف دمای بحرانی:</span>
+        <input type="range" id="tempSlider" min="65" max="95" value="80" oninput="updateSliders(); saveNotifConfig()">
+        <span class="slider-val" id="tempSliderVal">80°C</span>
       </div>
 
+      <!-- Cooldown Interval -->
       <div class="slider-group">
-        <span data-i18n="tempCap">سقف دما:</span>
-        <input type="range" id="tempSlider" min="50" max="95" value="75" oninput="updateSliders(); saveNotifConfig()">
-        <span class="slider-val" id="tempSliderVal">75°C</span>
+        <span data-i18n="cooldownLabel">⏳ فاصله تکرار هشدار:</span>
+        <select id="cooldownSelect" class="notif-select" onchange="saveNotifConfig()">
+          <option value="5" data-i18n="cd5">۵ دقیقه</option>
+          <option value="15" data-i18n="cd15">۱۵ دقیقه</option>
+          <option value="20" selected data-i18n="cd20">۲۰ دقیقه</option>
+          <option value="30" data-i18n="cd30">۳۰ دقیقه</option>
+          <option value="60" data-i18n="cd60">۱ ساعت</option>
+        </select>
       </div>
 
-      <button class="btn-test-notif" onclick="testNotification()" data-i18n="testNotifBtn">تست نوتیفیکیشن</button>
+      <!-- Sound Toggle -->
+      <label class="sound-toggle-label">
+        <input type="checkbox" id="soundToggle" checked onchange="saveNotifConfig()">
+        <span data-i18n="soundLabel">🔊 صدای هشدار</span>
+      </label>
+
+      <!-- Test Button -->
+      <button class="btn-test-notif" onclick="testNotification()" data-i18n="testNotifBtn">🔔 تست اعلان</button>
     </div>
   </div>
 
@@ -790,10 +892,19 @@
       loadCard: '📊 میانگین بار (Load Avg)',
       waveformTitle: '📈 نوار موجی زنده دمای هسته‌های پردازنده (Live Core Waveform):',
       waveformReady: 'آماده پایش',
-      notifTitle: '🔔 کنترلر هشدارهای داغی مک:',
-      cpuCap: 'سقف پردازنده:',
-      tempCap: 'سقف دما:',
-      testNotifBtn: 'تست نوتیفیکیشن',
+      notifTitle: 'مدیریت هوشمند اعلان‌های داغی مک:',
+      modeCritical: '🚨 فقط بحرانی (پیشنهادی)',
+      modeBalanced: '⚖️ متعادل',
+      modeSilent: '🔕 بی‌صدا',
+      tempCap: '🌡 سقف دمای بحرانی:',
+      cooldownLabel: '⏳ فاصله تکرار هشدار:',
+      soundLabel: '🔊 صدای هشدار',
+      testNotifBtn: '🔔 تست اعلان',
+      cd5: '۵ دقیقه',
+      cd15: '۱۵ دقیقه',
+      cd20: '۲۰ دقیقه',
+      cd30: '۳۰ دقیقه',
+      cd60: '۱ ساعت',
       diagTitle: '✨ تحلیل هوشمند علل داغی سیستم:',
       diagDefault: 'در حال پایش و تحلیل بلادرنگ وضعیت هسته‌های پردازنده و برنامه‌ها...',
       tableTitle: 'بیشترین مصرف‌کننده‌های پردازنده (Top CPU Offenders):',
@@ -834,10 +945,19 @@
       loadCard: '📊 Load Average',
       waveformTitle: '📈 Live Core Waveform (M3 Temperature History):',
       waveformReady: 'Monitoring Active',
-      notifTitle: '🔔 Thermal Spike Alert Controller:',
-      cpuCap: 'CPU Limit:',
-      tempCap: 'Temp Limit:',
-      testNotifBtn: 'Test Alert',
+      notifTitle: 'Smart Thermal Alert Controller:',
+      modeCritical: '🚨 Critical Only (Recommended)',
+      modeBalanced: '⚖️ Balanced',
+      modeSilent: '🔕 Silent / Mute',
+      tempCap: '🌡 Critical Temp Cap:',
+      cooldownLabel: '⏳ Alert Interval:',
+      soundLabel: '🔊 Alert Sound',
+      testNotifBtn: '🔔 Test Alert',
+      cd5: '5 min',
+      cd15: '15 min',
+      cd20: '20 min',
+      cd30: '30 min',
+      cd60: '1 hour',
       diagTitle: '✨ Smart Root Cause Diagnosis:',
       diagDefault: 'Monitoring live core telemetry and processes...',
       tableTitle: 'Top CPU Offenders:',
@@ -983,16 +1103,27 @@
     callNative('setPowerProfile', { mode });
   }
 
+  let currentNotifMode = 'critical';
+
+  function setNotifMode(mode) {
+    currentNotifMode = mode;
+    document.getElementById('modeCritical').classList.toggle('active', mode === 'critical');
+    document.getElementById('modeBalanced').classList.toggle('active', mode === 'balanced');
+    document.getElementById('modeSilent').classList.toggle('active', mode === 'silent');
+    saveNotifConfig();
+  }
+
   function updateSliders() {
-    document.getElementById('cpuSliderVal').textContent = document.getElementById('cpuSlider').value + '%';
     document.getElementById('tempSliderVal').textContent = document.getElementById('tempSlider').value + '°C';
   }
 
   function saveNotifConfig() {
     const enabled = document.getElementById('notifToggle').checked;
-    const cpu = parseInt(document.getElementById('cpuSlider').value, 10);
+    const mode = currentNotifMode;
     const temp = parseInt(document.getElementById('tempSlider').value, 10);
-    callNative('saveNotifConfig', { enabled, cpu, temp });
+    const cooldown = parseInt(document.getElementById('cooldownSelect').value, 10);
+    const sound_enabled = document.getElementById('soundToggle').checked;
+    callNative('saveNotifConfig', { enabled, mode, temp, cooldown, sound_enabled, cpu: 75 });
   }
 
   function testNotification() {
@@ -1079,11 +1210,20 @@
     if (cfg.notifications_enabled !== undefined) {
       document.getElementById('notifToggle').checked = cfg.notifications_enabled;
     }
-    if (cfg.cpu_threshold !== undefined) {
-      document.getElementById('cpuSlider').value = cfg.cpu_threshold;
+    if (cfg.mode !== undefined) {
+      currentNotifMode = cfg.mode;
+      document.getElementById('modeCritical').classList.toggle('active', cfg.mode === 'critical');
+      document.getElementById('modeBalanced').classList.toggle('active', cfg.mode === 'balanced');
+      document.getElementById('modeSilent').classList.toggle('active', cfg.mode === 'silent');
     }
     if (cfg.temp_threshold !== undefined) {
       document.getElementById('tempSlider').value = cfg.temp_threshold;
+    }
+    if (cfg.cooldown_minutes !== undefined) {
+      document.getElementById('cooldownSelect').value = String(cfg.cooldown_minutes);
+    }
+    if (cfg.sound_enabled !== undefined) {
+      document.getElementById('soundToggle').checked = cfg.sound_enabled;
     }
     updateSliders();
   }

@@ -501,9 +501,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, WKScriptMessageHandler, WKNa
             let cfgPath = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".mac_heat_config.json")
             var cfg: [String: Any] = [:]
             if let en = json["enabled"] as? Bool { cfg["notifications_enabled"] = en }
+            if let mode = json["mode"] as? String { cfg["mode"] = mode }
             if let cpu = json["cpu"] as? Int { cfg["cpu_threshold"] = cpu }
             if let temp = json["temp"] as? Int { cfg["temp_threshold"] = temp }
-            cfg["sound"] = "Subtle"
+            if let cd = json["cooldown"] as? Int { cfg["cooldown_minutes"] = cd }
+            if let snd = json["sound_enabled"] as? Bool {
+                cfg["sound_enabled"] = snd
+                cfg["sound"] = snd ? "Subtle" : "None"
+            } else {
+                cfg["sound"] = "Subtle"
+                cfg["sound_enabled"] = true
+            }
             if let data = try? JSONSerialization.data(withJSONObject: cfg, options: .prettyPrinted) {
                 try? data.write(to: cfgPath)
             }
