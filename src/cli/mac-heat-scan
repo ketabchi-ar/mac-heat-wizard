@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# ponytail: mac-heat-scan - fast native macOS thermal & CPU hog scanner
+# upgrade path: add powermetrics if sudo available
+
+scan() {
+    clear 2>/dev/null || true
+    echo "=========================================="
+    echo "       macOS Heat & Resource Scanner      "
+    echo "=========================================="
+    date +"%Y-%m-%d %H:%M:%S"
+    echo ""
+
+    echo "--- [1] Battery & Power ---"
+    pmset -g batt | grep -E "InternalBattery|drawing" || true
+    echo ""
+
+    echo "--- [2] Thermal Pressure ---"
+    local therm
+    therm=$(pmset -g therm 2>/dev/null | grep -v "Note:" || true)
+    if [[ -z "$therm" ]]; then
+        echo "Normal (pmset). kernel_task در صورت داغی سیستم فعال می‌شه."
+    else
+        echo "$therm"
+    fi
+    echo ""
+
+    echo "--- [3] Top CPU Hogs (Active Delta) ---"
+    top -l 2 -n 8 -o cpu -stats pid,cpu,mem,command | awk '
+        /PID    %CPU MEM    COMMAND/ { in_second_sample=1; count=0; next }
+        in_second_sample && count < 8 && $1 ~ /^[0-9]+$/ {
+            cmd = ""
+            for (i=4; i<=NF; i++) cmd = (cmd == "" ? $i : cmd " " $i)
+            printf "PID: %-7s | CPU: %-6s | MEM: %-7s | %s\n", $1, $2"%", $3, cmd
+            count++
+        }
+    ' || true
+    echo ""
+
+    echo "--- [4] Diagnosis ---"
+    if pgrep -x "Finder" >/dev/null; then
+        local finder_cpu
+        finder_cpu=$(ps -A -o %cpu,comm | grep "Finder" | head -n 1 | awk '{print int($1)}')
+        if [[ -n "$finder_cpu" ]] && (( finder_cpu > 30 )); then
+            echo "[!] Finder پردازنده رو درگیر کرده ($finder_cpu% CPU) -> کش آیکون یا پوشه سنگین."
+            echo "    دستور رفع: killall Finder"
+        fi
+    fi
+
+    local chrome_total
+    chrome_total=$(ps -A -o %cpu,comm | awk '/Google Chrome/ {s+=$1} END {print int(s)}')
+    if [[ -n "$chrome_total" ]] && (( chrome_total > 50 )); then
+        echo "[!] تب‌های کروم سنگین هستند (مجموع CPU: $chrome_total%) -> با Shift+Esc تب‌ها رو بررسی کن."
+    fi
+
+    if pmset -g batt | grep -q "charging"; then
+        echo "[!] باتری در حال شارژه -> حرارت تولید می‌کنه."
+    fi
+    echo "=========================================="
+}
+
+if [[ "${1:-}" == "--watch" || "${1:-}" == "-w" ]]; then
+    trap 'exit 0' INT
+    while true; do
+        scan
+        sleep 3
+    done
+else
+    scan
+fi

@@ -1,0 +1,9 @@
+.DS_Store
+*.swp
+*~
+build/
+*.log
+.mac_heat_history.log
+.mac_heat_config.json
+.cache/
+assets/AppIcon.iconset/

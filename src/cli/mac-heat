@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# mac-heat - quick CLI terminal summary
+~/.local/bin/mac-heat-scan

@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Apple Silicon M3 Thermal Core</title>
+<style>
+  :root {
+    --bg-glass: rgba(18, 22, 34, 0.78);
+    --border-glass: rgba(255, 255, 255, 0.08);
+    --border-focus: rgba(56, 189, 248, 0.4);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --cyan: #38bdf8;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --rose: #fb7185;
+    --purple: #c084fc;
+    --blue: #60a5fa;
+    --card-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+    --table-header-bg: rgba(18, 22, 34, 0.96);
+    --table-hover: rgba(255, 255, 255, 0.04);
+    --table-selected: rgba(56, 189, 248, 0.18);
+    --pill-bg: rgba(0, 0, 0, 0.35);
+  }
+
+  body.theme-light {
+    --bg-glass: rgba(255, 255, 255, 0.78);
+    --border-glass: rgba(0, 0, 0, 0.09);
+    --border-focus: rgba(2, 132, 199, 0.4);
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --cyan: #0284c7;
+    --green: #059669;
+    --amber: #d97706;
+    --rose: #e11d48;
+    --purple: #9333ea;
+    --blue: #2563eb;
+    --card-shadow: 0 10px 25px rgba(0, 0, 0, 0.06);
+    --table-header-bg: rgba(241, 245, 249, 0.98);
+    --table-hover: rgba(0, 0, 0, 0.035);
+    --table-selected: rgba(2, 132, 199, 0.12);
+    --pill-bg: rgba(0, 0, 0, 0.06);
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  body {
+    font-family: 'Vazirmatn UI', 'Vazirmatn', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: transparent;
+    color: var(--text-primary);
+    overflow: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    padding: 34px 20px 18px 20px;
+    -webkit-font-smoothing: antialiased;
+    transition: color 0.25s;
+  }
+
+  .glass-card {
+    background: var(--bg-glass);
+    backdrop-filter: blur(30px) saturate(190%);
+    -webkit-backdrop-filter: blur(30px) saturate(190%);
+    border: 1px solid var(--border-glass);
+    border-radius: 16px;
+    box-shadow: var(--card-shadow);
+    transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
+  }
+
+  .header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding: 0 4px;
+  }
+
+  .title-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .title-icon {
+    font-size: 22px;
+    filter: drop-shadow(0 0 8px rgba(251, 146, 60, 0.5));
+  }
+
+  .app-title {
+    font-size: 16.5px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--text-primary);
+  }
+
+  .chip-badge {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(168, 85, 247, 0.15));
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 3px 9px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--cyan);
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .header-toggle-btn {
+    background: var(--pill-bg);
+    border: 1px solid var(--border-glass);
+    color: var(--text-primary);
+    padding: 4px 10px;
+    border-radius: 14px;
+    font-size: 11.5px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .header-toggle-btn:hover {
+    border-color: var(--cyan);
+    transform: translateY(-1px);
+  }
+
+  .power-profile-pill {
+    background: var(--pill-bg);
+    border: 1px solid var(--border-glass);
+    border-radius: 20px;
+    padding: 2px 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+  }
+
+  .profile-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 3px 9px;
+    border-radius: 14px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .profile-btn.active {
+    background: rgba(56, 189, 248, 0.2);
+    color: var(--cyan);
+    font-weight: 700;
+  }
+
+  .profile-btn.eco.active {
+    background: rgba(52, 211, 153, 0.2);
+    color: var(--green);
+  }
+
+  /* Top Metric Cards */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  .metric-card {
+    padding: 12px 14px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .metric-strip {
+    position: absolute;
+    top: 0;
+    right: 0;
+    left: 0;
+    height: 3px;
+  }
+
+  .metric-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .metric-val {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    box-shadow: 0 0 8px currentColor;
+    animation: pulse 2s infinite ease-in-out;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.85); }
+  }
+
+  /* Live Sparkline Card */
+  .sparkline-card {
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .sparkline-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11.5px;
+    color: var(--text-secondary);
+  }
+
+  #sparklineCanvas {
+    width: 100%;
+    height: 48px;
+    border-radius: 6px;
+  }
+
+  /* Notification Controller Strip */
+  .notif-controller {
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    gap: 14px;
+  }
+
+  .notif-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+  }
+
+  .notif-controls {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .slider-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+  }
+
+  .slider-group input[type="range"] {
+    width: 75px;
+    accent-color: var(--cyan);
+    cursor: pointer;
+  }
+
+  .slider-val {
+    font-family: 'SF Mono', monospace;
+    color: var(--cyan);
+    font-weight: 700;
+    width: 32px;
+    text-align: left;
+  }
+
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+  }
+
+  .switch input { opacity: 0; width: 0; height: 0; }
+
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(125, 125, 125, 0.25);
+    transition: 0.3s;
+    border-radius: 34px;
+  }
+
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 14px;
+    width: 14px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.3s;
+    border-radius: 50%;
+  }
+
+  input:checked + .slider { background-color: var(--green); }
+  input:checked + .slider:before { transform: translateX(16px); }
+
+  .btn-test-notif {
+    background: var(--pill-bg);
+    border: 1px solid var(--border-glass);
+    color: var(--text-primary);
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .btn-test-notif:hover { background: rgba(125, 125, 125, 0.2); }
+
+  /* Diagnosis Box */
+  .diag-box {
+    padding: 10px 14px;
+    margin-bottom: 10px;
+  }
+
+  .diag-header {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--amber);
+    margin-bottom: 4px;
+  }
+
+  .diag-body {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-primary);
+  }
+
+  /* Table Section */
+  .table-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+  }
+
+  .table-header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+
+  .table-title {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .search-pill {
+    background: var(--pill-bg);
+    border: 1px solid var(--border-glass);
+    border-radius: 18px;
+    padding: 3px 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .search-pill input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 11.5px;
+    width: 130px;
+  }
+
+  .table-scroll {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  html[dir="rtl"] table { text-align: right; }
+  html[dir="ltr"] table { text-align: left; }
+
+  th {
+    position: sticky;
+    top: 0;
+    background: var(--table-header-bg);
+    color: var(--text-secondary);
+    font-weight: 600;
+    padding: 7px 8px;
+    border-bottom: 1px solid var(--border-glass);
+    font-size: 11px;
+    z-index: 2;
+  }
+
+  td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border-glass);
+  }
+
+  tr:hover { background: var(--table-hover); }
+  tr.selected { background: var(--table-selected) !important; }
+
+  .pid-col { font-family: 'SF Mono', monospace; font-size: 11px; color: var(--text-muted); }
+  .cpu-col { font-family: 'SF Mono', monospace; font-weight: 700; color: var(--rose); }
+  .mem-col { font-family: 'SF Mono', monospace; color: var(--text-secondary); }
+  .cmd-col { direction: ltr; text-align: left; font-family: 'SF Mono', monospace; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 380px; }
+
+  /* Bottom Actions Bar */
+  .bottom-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 14px;
+  }
+
+  .action-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn {
+    border: 1px solid var(--border-glass);
+    border-radius: 10px;
+    padding: 6px 11px;
+    font-size: 11.5px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .btn-refresh { background: rgba(56, 189, 248, 0.12); color: var(--cyan); border-color: rgba(56, 189, 248, 0.25); }
+  .btn-tabs    { background: rgba(52, 211, 153, 0.12); color: var(--green); border-color: rgba(52, 211, 153, 0.25); }
+  .btn-history { background: rgba(251, 146, 60, 0.12); color: var(--amber); border-color: rgba(251, 146, 60, 0.25); }
+  .btn-freeze  { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border-color: rgba(245, 158, 11, 0.3); }
+  .btn-resume  { background: rgba(52, 211, 153, 0.15); color: var(--green); border-color: rgba(52, 211, 153, 0.3); }
+  .btn-kill    { background: rgba(244, 63, 94, 0.15); color: var(--rose); border-color: rgba(244, 63, 94, 0.3); }
+  .btn-finder  { background: rgba(96, 165, 250, 0.12); color: var(--blue); border-color: rgba(96, 165, 250, 0.25); }
+  .btn-cache   { background: rgba(192, 132, 252, 0.12); color: var(--purple); border-color: rgba(192, 132, 252, 0.25); }
+
+  /* Modals */
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(12px);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+  }
+
+  .modal-card {
+    width: 860px;
+    height: 570px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .modal-content {
+    flex: 1;
+    overflow-y: auto;
+    font-family: inherit;
+    font-size: 11.5px;
+    background: var(--pill-bg);
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border-glass);
+    line-height: 1.6;
+  }
+
+  /* Elegant Tabs Table */
+  .tabs-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .tabs-table th {
+    background: var(--table-header-bg);
+    padding: 9px 10px;
+    font-size: 11px;
+    color: var(--text-secondary);
+  }
+
+  .tabs-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-glass);
+  }
+
+  .tab-badge-chrome {
+    background: rgba(56, 189, 248, 0.15);
+    color: var(--cyan);
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+
+  .tab-badge-brave {
+    background: rgba(251, 146, 60, 0.15);
+    color: var(--amber);
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+
+  .ram-badge {
+    font-family: 'SF Mono', monospace;
+    font-weight: 700;
+    color: var(--cyan);
+    background: rgba(56, 189, 248, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+  }
+
+  .tab-close-btn {
+    background: rgba(244, 63, 94, 0.12);
+    color: var(--rose);
+    border: 1px solid rgba(244, 63, 94, 0.25);
+    border-radius: 6px;
+    padding: 3px 8px;
+    font-size: 10.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .tab-close-btn:hover {
+    background: rgba(244, 63, 94, 0.25);
+    transform: scale(1.05);
+  }
+</style>
+</head>
+<body>
+
+  <!-- Top Header -->
+  <div class="header-bar">
+    <div class="title-group">
+      <span class="title-icon">🔥</span>
+      <span class="app-title" data-i18n="appTitle">مرکز کنترل حرارتی و مانیتورینگ منابع مک</span>
+      <span class="chip-badge">Apple Silicon M3</span>
+    </div>
+
+    <!-- Header Actions: Theme + Language + Power Profile -->
+    <div class="header-actions">
+      <!-- Theme Toggle -->
+      <button class="header-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" data-i18n="themeLight">☀️ لایت</button>
+      <!-- Language Toggle -->
+      <button class="header-toggle-btn" id="langToggleBtn" onclick="toggleLanguage()" data-i18n="langToggle">🇬🇧 English</button>
+
+      <!-- Power Profile Switcher -->
+      <div class="power-profile-pill">
+        <button class="profile-btn active" id="profPerf" onclick="setPowerProfile('performance')" data-i18n="perfMode">🚀 عملکرد حداکثر</button>
+        <button class="profile-btn eco" id="profEco" onclick="setPowerProfile('eco')" data-i18n="ecoMode">❄️ حالت خنک‌سازی</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hero Metrics -->
+  <div class="metrics-grid">
+    <div class="glass-card metric-card">
+      <div class="metric-strip" style="background: var(--cyan);"></div>
+      <div class="metric-label">
+        <span data-i18n="powerCard">⚡️ توان و شارژر باتری</span>
+        <span class="pulse-dot" style="color: var(--cyan);"></span>
+      </div>
+      <div class="metric-val" id="battVal">⚡️ در حال دریافت...</div>
+    </div>
+
+    <div class="metric-card glass-card">
+      <div class="metric-strip" style="background: var(--green);" id="thermStrip"></div>
+      <div class="metric-label">
+        <span data-i18n="tempCard">🌡 دمای چیپ M3 (هسته‌ها)</span>
+        <span class="pulse-dot" style="color: var(--green);" id="thermDot"></span>
+      </div>
+      <div class="metric-val" id="thermVal">🌡 ۴۴°C</div>
+    </div>
+
+    <div class="metric-card glass-card">
+      <div class="metric-strip" style="background: var(--purple);"></div>
+      <div class="metric-label">
+        <span data-i18n="loadCard">📊 میانگین بار (Load Avg)</span>
+        <span class="pulse-dot" style="color: var(--purple);"></span>
+      </div>
+      <div class="metric-val" id="loadVal">📊 در حال محاسبه...</div>
+    </div>
+  </div>
+
+  <!-- Sparkline Card -->
+  <div class="glass-card sparkline-card">
+    <div class="sparkline-header">
+      <span data-i18n="waveformTitle">📈 نوار موجی زنده دمای هسته‌های پردازنده (Live Core Waveform):</span>
+      <span id="sparklineStats" style="font-family: 'SF Mono', monospace; color: var(--cyan);" data-i18n="waveformReady">آماده پایش</span>
+    </div>
+    <canvas id="sparklineCanvas"></canvas>
+  </div>
+
+  <!-- Notification Controller -->
+  <div class="glass-card notif-controller">
+    <div class="notif-section-title">
+      <span data-i18n="notifTitle">🔔 کنترلر هشدارهای داغی مک:</span>
+      <label class="switch">
+        <input type="checkbox" id="notifToggle" checked onchange="saveNotifConfig()">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="notif-controls">
+      <div class="slider-group">
+        <span data-i18n="cpuCap">سقف پردازنده:</span>
+        <input type="range" id="cpuSlider" min="20" max="80" value="40" oninput="updateSliders(); saveNotifConfig()">
+        <span class="slider-val" id="cpuSliderVal">40%</span>
+      </div>
+
+      <div class="slider-group">
+        <span data-i18n="tempCap">سقف دما:</span>
+        <input type="range" id="tempSlider" min="50" max="95" value="75" oninput="updateSliders(); saveNotifConfig()">
+        <span class="slider-val" id="tempSliderVal">75°C</span>
+      </div>
+
+      <button class="btn-test-notif" onclick="testNotification()" data-i18n="testNotifBtn">تست نوتیفیکیشن</button>
+    </div>
+  </div>
+
+  <!-- Diagnosis Box -->
+  <div class="glass-card diag-box">
+    <div class="diag-header">
+      <span data-i18n="diagTitle">✨ تحلیل هوشمند علل داغی سیستم:</span>
+    </div>
+    <div class="diag-body" id="diagBody" data-i18n="diagDefault">
+      در حال پایش و تحلیل بلادرنگ وضعیت هسته‌های پردازنده و برنامه‌ها...
+    </div>
+  </div>
+
+  <!-- Table Section -->
+  <div class="glass-card table-section">
+    <div class="table-header-bar">
+      <span class="table-title" data-i18n="tableTitle">بیشترین مصرف‌کننده‌های پردازنده (Top CPU Offenders):</span>
+      <div class="search-pill">
+        <span>🔍</span>
+        <input type="text" id="searchInput" placeholder="فیلتر پردازش..." oninput="filterProcs()">
+      </div>
+    </div>
+
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 70px;" data-i18n="colPid">PID</th>
+            <th style="width: 80px;" data-i18n="colCpu">CPU %</th>
+            <th style="width: 85px;" data-i18n="colRam">RAM</th>
+            <th style="width: 120px;" data-i18n="colUser">کاربر</th>
+            <th data-i18n="colCmd">فرمان / مسیر پردازش</th>
+          </tr>
+        </thead>
+        <tbody id="procTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Bottom Actions -->
+  <div class="glass-card bottom-bar">
+    <div class="action-group">
+      <button class="btn btn-refresh" onclick="triggerRefresh()" data-i18n="btnRefresh">🔄 بروزرسانی</button>
+      <button class="btn btn-tabs" onclick="openTabsInspector()" data-i18n="btnTabs">🌐 تب‌های باز مرورگر (بر اساس RAM)</button>
+      <button class="btn btn-history" onclick="openHistory()" data-i18n="btnHistory">📜 تاریخچه اسپایک‌ها</button>
+    </div>
+
+    <div class="action-group">
+      <button class="btn btn-freeze" onclick="actionSelected('freeze')" data-i18n="btnFreeze">⏸ فریز تب</button>
+      <button class="btn btn-resume" onclick="actionSelected('resume')" data-i18n="btnResume">▶️ ادامه</button>
+      <button class="btn btn-kill" onclick="actionSelected('kill')" data-i18n="btnKill">⛔️ بستن (Kill)</button>
+      <button class="btn btn-finder" onclick="callNative('restartFinder')" data-i18n="btnRestartFinder">♻️ ری‌استارت Finder</button>
+      <button class="btn btn-cache" onclick="callNative('clearCache')" data-i18n="btnClearCache">🧹 کش آیکون</button>
+    </div>
+  </div>
+
+  <!-- Modal History -->
+  <div class="modal-overlay" id="historyModal">
+    <div class="glass-card modal-card">
+      <div class="modal-header">
+        <span style="font-weight: 700; font-size: 14px;" data-i18n="historyModalTitle">تاریخچه اسپایک‌های حرارتی سیستم</span>
+        <button class="btn btn-kill" onclick="closeHistory()" data-i18n="btnCloseModal">بستن ✕</button>
+      </div>
+      <div class="modal-content" id="historyContent" style="direction: ltr; text-align: left; font-family: 'SF Mono', monospace;">در حال بارگذاری لاگ...</div>
+    </div>
+  </div>
+
+  <!-- Modal: Tabs Inspector Sorted By RAM -->
+  <div class="modal-overlay" id="tabsModal">
+    <div class="glass-card modal-card">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="font-weight: 700; font-size: 14px;" data-i18n="tabsModalTitle">🌐 مانیتور تب‌های باز مرورگرهای Chrome و Brave</span>
+          <span style="font-size: 11px; color: var(--text-muted);" id="tabCountBadge">--</span>
+        </div>
+        <button class="btn btn-kill" onclick="closeTabsInspector()" data-i18n="btnCloseModal">بستن ✕</button>
+      </div>
+      <div class="modal-content" style="padding: 0; overflow-y: auto;">
+        <table class="tabs-table">
+          <thead>
+            <tr>
+              <th style="width: 45px; text-align: center;" data-i18n="colTabNum">#</th>
+              <th style="width: 75px; text-align: center;" data-i18n="colTabBrowser">مرورگر</th>
+              <th style="width: 95px; text-align: center;" data-i18n="colTabRam">مصرف RAM</th>
+              <th data-i18n="colTabTitle">عنوان تب</th>
+              <th style="width: 220px; text-align: left;" data-i18n="colTabUrl">آدرس (URL)</th>
+              <th style="width: 80px; text-align: center;" data-i18n="colTabAction">عملیات</th>
+            </tr>
+          </thead>
+          <tbody id="tabsListBody">
+            <tr>
+              <td colspan="6" style="text-align: center; padding: 20px; color: var(--text-muted);">در حال اسکن تب‌ها و میزان رم...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script>
+  let allProcs = [];
+  let selectedPID = null;
+  let tempHistory = [42, 43, 44, 45, 44];
+  const maxHistoryPoints = 30;
+
+  // Language & Theme State
+  let currentLang = 'fa';
+  let currentTheme = 'dark';
+
+  const i18n = {
+    fa: {
+      appTitle: 'مرکز کنترل حرارتی و مانیتورینگ منابع مک',
+      perfMode: '🚀 عملکرد حداکثر',
+      ecoMode: '❄️ حالت خنک‌سازی',
+      powerCard: '⚡️ توان و شارژر باتری',
+      tempCard: '🌡 دمای چیپ M3 (هسته‌ها)',
+      loadCard: '📊 میانگین بار (Load Avg)',
+      waveformTitle: '📈 نوار موجی زنده دمای هسته‌های پردازنده (Live Core Waveform):',
+      waveformReady: 'آماده پایش',
+      notifTitle: '🔔 کنترلر هشدارهای داغی مک:',
+      cpuCap: 'سقف پردازنده:',
+      tempCap: 'سقف دما:',
+      testNotifBtn: 'تست نوتیفیکیشن',
+      diagTitle: '✨ تحلیل هوشمند علل داغی سیستم:',
+      diagDefault: 'در حال پایش و تحلیل بلادرنگ وضعیت هسته‌های پردازنده و برنامه‌ها...',
+      tableTitle: 'بیشترین مصرف‌کننده‌های پردازنده (Top CPU Offenders):',
+      searchPlaceholder: 'فیلتر پردازش...',
+      colPid: 'PID',
+      colCpu: 'CPU %',
+      colRam: 'RAM',
+      colUser: 'کاربر',
+      colCmd: 'فرمان / مسیر پردازش',
+      btnRefresh: '🔄 بروزرسانی',
+      btnTabs: '🌐 تب‌های باز مرورگر (بر اساس RAM)',
+      btnHistory: '📜 تاریخچه اسپایک‌ها',
+      btnFreeze: '⏸ فریز تب',
+      btnResume: '▶️ ادامه',
+      btnKill: '⛔️ بستن (Kill)',
+      btnRestartFinder: '♻️ ری‌استارت Finder',
+      btnClearCache: '🧹 کش آیکون',
+      historyModalTitle: 'تاریخچه اسپایک‌های حرارتی سیستم',
+      tabsModalTitle: '🌐 مانیتور تب‌های باز مرورگرهای Chrome و Brave',
+      colTabNum: '#',
+      colTabBrowser: 'مرورگر',
+      colTabRam: 'مصرف RAM',
+      colTabTitle: 'عنوان تب',
+      colTabUrl: 'آدرس (URL)',
+      colTabAction: 'عملیات',
+      btnTabClose: '✕ بستن',
+      btnCloseModal: 'بستن ✕',
+      themeLight: '☀️ لایت',
+      themeDark: '🌙 دارک',
+      langToggle: '🇬🇧 English',
+    },
+    en: {
+      appTitle: 'Apple Silicon M3 Thermal & Resource Center',
+      perfMode: '🚀 Max Performance',
+      ecoMode: '❄️ Cool / Eco Mode',
+      powerCard: '⚡️ Battery & Power Supply',
+      tempCard: '🌡 M3 Chip Temp (Cores)',
+      loadCard: '📊 Load Average',
+      waveformTitle: '📈 Live Core Waveform (M3 Temperature History):',
+      waveformReady: 'Monitoring Active',
+      notifTitle: '🔔 Thermal Spike Alert Controller:',
+      cpuCap: 'CPU Limit:',
+      tempCap: 'Temp Limit:',
+      testNotifBtn: 'Test Alert',
+      diagTitle: '✨ Smart Root Cause Diagnosis:',
+      diagDefault: 'Monitoring live core telemetry and processes...',
+      tableTitle: 'Top CPU Offenders:',
+      searchPlaceholder: 'Filter processes...',
+      colPid: 'PID',
+      colCpu: 'CPU %',
+      colRam: 'RAM',
+      colUser: 'User',
+      colCmd: 'Command / Path',
+      btnRefresh: '🔄 Refresh',
+      btnTabs: '🌐 Open Tabs (Ranked by RAM)',
+      btnHistory: '📜 Spike History',
+      btnFreeze: '⏸ Pause Tab',
+      btnResume: '▶️ Resume',
+      btnKill: '⛔️ Kill',
+      btnRestartFinder: '♻️ Restart Finder',
+      btnClearCache: '🧹 Clear Icon Cache',
+      historyModalTitle: 'System Thermal Spike History',
+      tabsModalTitle: '🌐 Open Tabs in Chrome & Brave (By Memory)',
+      colTabNum: '#',
+      colTabBrowser: 'Browser',
+      colTabRam: 'RAM Usage',
+      colTabTitle: 'Tab Title',
+      colTabUrl: 'URL',
+      colTabAction: 'Action',
+      btnTabClose: '✕ Close',
+      btnCloseModal: 'Close ✕',
+      themeLight: '☀️ Light',
+      themeDark: '🌙 Dark',
+      langToggle: '🇮🇷 فارسی',
+    }
+  };
+
+  function applyLanguage(lang) {
+    currentLang = lang;
+    const isRtl = (lang === 'fa');
+    document.documentElement.dir = isRtl ? 'rtl' : 'ltr';
+    document.documentElement.lang = lang;
+
+    const dict = i18n[lang];
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      if (dict[key]) {
+        el.textContent = dict[key];
+      }
+    });
+
+    document.getElementById('searchInput').placeholder = dict.searchPlaceholder;
+    document.getElementById('langToggleBtn').textContent = dict.langToggle;
+    document.getElementById('themeToggleBtn').textContent = (currentTheme === 'dark') ? dict.themeLight : dict.themeDark;
+  }
+
+  function toggleLanguage() {
+    applyLanguage(currentLang === 'fa' ? 'en' : 'fa');
+  }
+
+  function toggleTheme() {
+    currentTheme = (currentTheme === 'dark') ? 'light' : 'dark';
+    if (currentTheme === 'light') {
+      document.body.classList.add('theme-light');
+      document.getElementById('themeToggleBtn').textContent = i18n[currentLang].themeDark;
+    } else {
+      document.body.classList.remove('theme-light');
+      document.getElementById('themeToggleBtn').textContent = i18n[currentLang].themeLight;
+    }
+    drawWaveform();
+  }
+
+  let canvas = null;
+  let ctx = null;
+
+  function initCanvas() {
+    canvas = document.getElementById('sparklineCanvas');
+    if (canvas && canvas.getContext) {
+      ctx = canvas.getContext('2d');
+      resizeCanvas();
+    }
+  }
+
+  function resizeCanvas() {
+    if (!canvas) return;
+    canvas.width = canvas.parentElement.clientWidth - 28;
+    canvas.height = 48;
+    drawWaveform();
+  }
+
+  window.addEventListener('resize', resizeCanvas);
+  document.addEventListener('DOMContentLoaded', initCanvas);
+  setTimeout(initCanvas, 150);
+
+  function drawWaveform() {
+    if (!ctx || tempHistory.length < 2) return;
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const minT = 30;
+    const maxT = 85;
+    const step = w / (maxHistoryPoints - 1);
+
+    ctx.beginPath();
+    tempHistory.forEach((val, i) => {
+      const normalized = (val - minT) / (maxT - minT);
+      const y = h - (normalized * (h - 8)) - 4;
+      const x = i * step;
+      if (i === 0) ctx.moveTo(x, y);
+      else {
+        const prevX = (i - 1) * step;
+        const prevVal = tempHistory[i - 1];
+        const prevY = h - (((prevVal - minT) / (maxT - minT)) * (h - 8)) - 4;
+        const cx = (prevX + x) / 2;
+        ctx.bezierCurveTo(cx, prevY, cx, y, x, y);
+      }
+    });
+
+    const isLight = (currentTheme === 'light');
+    ctx.strokeStyle = isLight ? '#0284c7' : '#38bdf8';
+    ctx.lineWidth = 2.5;
+    ctx.shadowColor = isLight ? 'rgba(2, 132, 199, 0.4)' : 'rgba(56, 189, 248, 0.6)';
+    ctx.shadowBlur = 8;
+    ctx.stroke();
+
+    ctx.lineTo((tempHistory.length - 1) * step, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, isLight ? 'rgba(2, 132, 199, 0.2)' : 'rgba(56, 189, 248, 0.25)');
+    grad.addColorStop(1, 'rgba(56, 189, 248, 0.0)');
+    ctx.fillStyle = grad;
+    ctx.shadowBlur = 0;
+    ctx.fill();
+  }
+
+  function callNative(action, payload = {}) {
+    if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.action) {
+      window.webkit.messageHandlers.action.postMessage(JSON.stringify({ action, ...payload }));
+    }
+  }
+
+  function setPowerProfile(mode) {
+    document.getElementById('profPerf').classList.toggle('active', mode === 'performance');
+    document.getElementById('profEco').classList.toggle('active', mode === 'eco');
+    callNative('setPowerProfile', { mode });
+  }
+
+  function updateSliders() {
+    document.getElementById('cpuSliderVal').textContent = document.getElementById('cpuSlider').value + '%';
+    document.getElementById('tempSliderVal').textContent = document.getElementById('tempSlider').value + '°C';
+  }
+
+  function saveNotifConfig() {
+    const enabled = document.getElementById('notifToggle').checked;
+    const cpu = parseInt(document.getElementById('cpuSlider').value, 10);
+    const temp = parseInt(document.getElementById('tempSlider').value, 10);
+    callNative('saveNotifConfig', { enabled, cpu, temp });
+  }
+
+  function testNotification() {
+    callNative('testNotification');
+  }
+
+  function triggerRefresh() {
+    callNative('refresh');
+  }
+
+  function actionSelected(actionType) {
+    if (!selectedPID) {
+      alert(currentLang === 'fa' ? 'ابتدا یک سطر از جدول را با کلیک انتخاب کنید.' : 'Please select a process from the table first.');
+      return;
+    }
+    callNative(actionType, { pid: selectedPID });
+  }
+
+  function openHistory() {
+    document.getElementById('historyModal').style.display = 'flex';
+    callNative('getHistory');
+  }
+
+  function closeHistory() {
+    document.getElementById('historyModal').style.display = 'none';
+  }
+
+  function setHistoryText(text) {
+    document.getElementById('historyContent').textContent = text || (currentLang === 'fa' ? 'هیچ رکوردی ثبت نشده است.' : 'No records logged yet.');
+  }
+
+  function openTabsInspector() {
+    document.getElementById('tabsModal').style.display = 'flex';
+    document.getElementById('tabsListBody').innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: var(--text-muted);">${currentLang === 'fa' ? 'در حال اسکن تب‌ها و میزان رم...' : 'Scanning open tabs & memory usage...'}</td></tr>`;
+    callNative('getBrowserTabs');
+  }
+
+  function closeTabsInspector() {
+    document.getElementById('tabsModal').style.display = 'none';
+  }
+
+  function closeSpecificTab(browser, windowIndex, tabIndex, title) {
+    const promptMsg = currentLang === 'fa' 
+      ? `آیا از بستن تب زیر اطمینان دارید؟\n${title}` 
+      : `Are you sure you want to close this tab?\n${title}`;
+    if (confirm(promptMsg)) {
+      callNative('closeBrowserTab', { browser, windowIndex, tabIndex });
+    }
+  }
+
+  function renderBrowserTabs(tabs) {
+    const tbody = document.getElementById('tabsListBody');
+    tbody.innerHTML = '';
+    if (!tabs || !tabs.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: var(--text-muted);">${currentLang === 'fa' ? 'هیچ تبی در Chrome یا Brave پیدا نشد.' : 'No open tabs found in Chrome or Brave.'}</td></tr>`;
+      return;
+    }
+
+    const dict = i18n[currentLang];
+    document.getElementById('tabCountBadge').textContent = currentLang === 'fa' 
+      ? `(${tabs.length} تب فعال مرتب‌شده بر اساس بیشترین RAM)`
+      : `(${tabs.length} open tabs ranked by RAM usage)`;
+
+    tabs.forEach((t, idx) => {
+      const tr = document.createElement('tr');
+      const badgeClass = t.browser === 'Brave' ? 'tab-badge-brave' : 'tab-badge-chrome';
+      const safeTitle = (t.title || '').replace(/'/g, "\\'");
+      tr.innerHTML = `
+        <td style="text-align: center; font-family: 'SF Mono', monospace; color: var(--text-muted);">${idx + 1}</td>
+        <td style="text-align: center;"><span class="${badgeClass}">${t.browser}</span></td>
+        <td style="text-align: center;"><span class="ram-badge">${t.ram_mb || '—'} MB</span></td>
+        <td style="font-weight: 600; color: var(--text-primary); max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${t.title}">${t.title || 'بدون عنوان'}</td>
+        <td style="direction: ltr; text-align: left; font-family: 'SF Mono', monospace; font-size: 10px; color: var(--text-muted); max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${t.url}">${t.url || ''}</td>
+        <td style="text-align: center;">
+          <button class="tab-close-btn" onclick="closeSpecificTab('${t.browser}', ${t.windowIndex || 1}, ${t.tabIndex || 1}, '${safeTitle}')">${dict.btnTabClose}</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function setNotifConfig(cfg) {
+    if (!cfg) return;
+    if (cfg.notifications_enabled !== undefined) {
+      document.getElementById('notifToggle').checked = cfg.notifications_enabled;
+    }
+    if (cfg.cpu_threshold !== undefined) {
+      document.getElementById('cpuSlider').value = cfg.cpu_threshold;
+    }
+    if (cfg.temp_threshold !== undefined) {
+      document.getElementById('tempSlider').value = cfg.temp_threshold;
+    }
+    updateSliders();
+  }
+
+  function renderData(data) {
+    if (!data) return;
+
+    if (data.battery) {
+      document.getElementById('battVal').textContent = data.battery;
+    }
+
+    if (data.tempAvg !== undefined && data.tempMax !== undefined) {
+      const avg = data.tempAvg;
+      const max = data.tempMax;
+      const thermEl = document.getElementById('thermVal');
+      const dotEl = document.getElementById('thermDot');
+      const stripEl = document.getElementById('thermStrip');
+
+      const maxLabel = currentLang === 'fa' ? 'اوج' : 'Peak';
+      thermEl.textContent = `${avg}°C (${maxLabel}: ${max}°C)`;
+
+      if (max > 75) {
+        thermEl.style.color = 'var(--rose)';
+        dotEl.style.color = 'var(--rose)';
+        stripEl.style.background = 'var(--rose)';
+      } else if (max > 60) {
+        thermEl.style.color = 'var(--amber)';
+        dotEl.style.color = 'var(--amber)';
+        stripEl.style.background = 'var(--amber)';
+      } else {
+        thermEl.style.color = 'var(--green)';
+        dotEl.style.color = 'var(--green)';
+        stripEl.style.background = 'var(--green)';
+      }
+
+      tempHistory.push(avg);
+      if (tempHistory.length > maxHistoryPoints) tempHistory.shift();
+      const nowLabel = currentLang === 'fa' ? 'اکنون' : 'Now';
+      document.getElementById('sparklineStats').textContent = `${nowLabel}: ${avg}°C | ${maxLabel}: ${max}°C`;
+      drawWaveform();
+    }
+
+    if (data.load) {
+      document.getElementById('loadVal').textContent = data.load;
+    }
+
+    if (data.diagnosis && data.diagnosis.length) {
+      document.getElementById('diagBody').innerHTML = data.diagnosis.map(d => `• ${d}`).join('<br>');
+    } else {
+      document.getElementById('diagBody').textContent = currentLang === 'fa' 
+        ? '• تمامی پارامترهای حرارتی و مصرف هسته‌ها در محدوده مطلوب و پایدار قرار دارند.'
+        : '• All thermal sensors and M3 cores are running stably within normal thresholds.';
+    }
+
+    if (data.procs) {
+      allProcs = data.procs;
+      filterProcs();
+    }
+  }
+
+  function filterProcs() {
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    const tbody = document.getElementById('procTableBody');
+    tbody.innerHTML = '';
+
+    allProcs.forEach(p => {
+      const match = !q || p.name.toLowerCase().includes(q) || p.pid.includes(q) || p.user.toLowerCase().includes(q);
+      if (!match) return;
+
+      const tr = document.createElement('tr');
+      if (selectedPID === p.pid) tr.classList.add('selected');
+
+      tr.onclick = () => {
+        document.querySelectorAll('#procTableBody tr').forEach(r => r.classList.remove('selected'));
+        tr.classList.add('selected');
+        selectedPID = p.pid;
+      };
+
+      tr.innerHTML = `
+        <td class="pid-col">${p.pid}</td>
+        <td class="cpu-col">${p.cpu}%</td>
+        <td class="mem-col">${p.mem}</td>
+        <td style="color: var(--text-secondary);">${p.user}</td>
+        <td class="cmd-col" title="${p.name}">${p.name}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Initial call
+  setTimeout(() => { callNative('refresh'); }, 300);
+</script>
+</body>
+</html>
