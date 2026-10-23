@@ -14,7 +14,29 @@ scan() {
     pmset -g batt | grep -E "InternalBattery|drawing" || true
     echo ""
 
-    echo "--- [2] Thermal Pressure ---"
+    echo "--- [2] Apple Silicon M3 Die Temperature ---"
+    python3 -c "
+import ctypes
+from ctypes import c_void_p, c_int, c_double
+try:
+    iokit = ctypes.cdll.LoadLibrary('/System/Library/Frameworks/IOKit.framework/IOKit')
+    cf = ctypes.cdll.LoadLibrary('/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation')
+    cf.CFArrayGetCount.restype = c_int; cf.CFArrayGetCount.argtypes = [c_void_p]
+    cf.CFArrayGetValueAtIndex.restype = c_void_p; cf.CFArrayGetValueAtIndex.argtypes = [c_void_p, c_int]
+    iokit.IOHIDEventSystemClientCreate.restype = c_void_p
+    iokit.IOHIDEventSystemClientCopyServices.restype = c_void_p; iokit.IOHIDEventSystemClientCopyServices.argtypes = [c_void_p]
+    iokit.IOHIDServiceClientCopyEvent.restype = c_void_p; iokit.IOHIDServiceClientCopyEvent.argtypes = [c_void_p, c_int, c_int, c_int]
+    iokit.IOHIDEventGetFloatValue.restype = c_double; iokit.IOHIDEventGetFloatValue.argtypes = [c_void_p, c_int]
+    c = iokit.IOHIDEventSystemClientCreate(None)
+    s = iokit.IOHIDEventSystemClientCopyServices(c)
+    n = cf.CFArrayGetCount(s) if s else 0
+    t = [iokit.IOHIDEventGetFloatValue(e, 15<<16) for e in [iokit.IOHIDServiceClientCopyEvent(cf.CFArrayGetValueAtIndex(s, i), 15, 0, 0) for i in range(n)] if e and 20.0 <= iokit.IOHIDEventGetFloatValue(e, 15<<16) <= 110.0]
+    if t: print(f'میانگین: {sum(t)/len(t):.1f}°C | اوج (Peak): {max(t):.1f}°C (از بین {len(t)} سنسور سخت‌افزاری M3)')
+except: pass
+" 2>/dev/null || true
+    echo ""
+
+    echo "--- [3] Thermal Pressure (Kernel) ---"
     local therm
     therm=$(pmset -g therm 2>/dev/null | grep -v "Note:" || true)
     if [[ -z "$therm" ]]; then
@@ -24,7 +46,7 @@ scan() {
     fi
     echo ""
 
-    echo "--- [3] Top CPU Hogs (Active Delta) ---"
+    echo "--- [4] Top CPU Hogs (Active Delta) ---"
     top -l 2 -n 8 -o cpu -stats pid,cpu,mem,command | awk '
         /PID    %CPU MEM    COMMAND/ { in_second_sample=1; count=0; next }
         in_second_sample && count < 8 && $1 ~ /^[0-9]+$/ {
