@@ -1165,13 +1165,13 @@
     document.getElementById('tabsModal').style.display = 'none';
   }
 
-  function closeSpecificTab(browser, windowIndex, tabIndex, title) {
-    const promptMsg = currentLang === 'fa' 
-      ? `آیا از بستن تب زیر اطمینان دارید؟\n${title}` 
-      : `Are you sure you want to close this tab?\n${title}`;
-    if (confirm(promptMsg)) {
-      callNative('closeBrowserTab', { browser, windowIndex, tabIndex });
+  function closeSpecificTab(browser, windowIndex, tabIndex, btnEl) {
+    if (btnEl) {
+      btnEl.disabled = true;
+      btnEl.textContent = '...';
+      btnEl.style.opacity = '0.5';
     }
+    callNative('closeBrowserTab', { browser, windowIndex, tabIndex });
   }
 
   function renderBrowserTabs(tabs) {
@@ -1190,7 +1190,6 @@
     tabs.forEach((t, idx) => {
       const tr = document.createElement('tr');
       const badgeClass = t.browser === 'Brave' ? 'tab-badge-brave' : 'tab-badge-chrome';
-      const safeTitle = (t.title || '').replace(/'/g, "\\'");
       tr.innerHTML = `
         <td style="text-align: center; font-family: 'SF Mono', monospace; color: var(--text-muted);">${idx + 1}</td>
         <td style="text-align: center;"><span class="${badgeClass}">${t.browser}</span></td>
@@ -1198,7 +1197,7 @@
         <td style="font-weight: 600; color: var(--text-primary); max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${t.title}">${t.title || 'بدون عنوان'}</td>
         <td style="direction: ltr; text-align: left; font-family: 'SF Mono', monospace; font-size: 10px; color: var(--text-muted); max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${t.url}">${t.url || ''}</td>
         <td style="text-align: center;">
-          <button class="tab-close-btn" onclick="closeSpecificTab('${t.browser}', ${t.windowIndex || 1}, ${t.tabIndex || 1}, '${safeTitle}')">${dict.btnTabClose}</button>
+          <button class="tab-close-btn" onclick="closeSpecificTab('${t.browser}', ${t.windowIndex || 1}, ${t.tabIndex || 1}, this)">${dict.btnTabClose}</button>
         </td>
       `;
       tbody.appendChild(tr);
